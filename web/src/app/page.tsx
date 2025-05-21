@@ -1,17 +1,29 @@
 "use client"
 import React, { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { UltraHonkBackend } from "@aztec/bb.js"
+import { Noir } from "@noir-lang/noir_js"
+import circuit from "../../public/circuits/noir_circuits.json"
+import { CircuitInputs } from "../../public/circuits/circuit-types"
+
+let currentProof: Uint8Array | null = null;
+let currentPublicInputs: any = null;
 
 const fakeLogs = [
   { text: "[system] Noir Web Terminal v0.1.0", color: "text-gray-400" },
   { text: "[info] Ready for proof generation...", color: "text-gray-500" },
   { text: "[warn] Privacy mode enabled", color: "text-gray-600" },
-  { text: "[user] Awaiting input...", color: "text-gray-700" },
+  { text: "[user] To use your own circuit:", color: "text-gray-700" },
+  { text: "1. Edit circuits/src/main.nr", color: "text-gray-700" },
+  { text: "2. Run: cd web && pnpm compile-circuits", color: "text-gray-700" },
+  { text: "3. Edit web/public/circuits/Prover.toml", color: "text-gray-700" },
+  { text: "4. Click 'Generate Proof'", color: "text-gray-700" },
 ]
 
 export default function Home() {
   const [logs, setLogs] = useState(fakeLogs)
   const [proofGenerated, setProofGenerated] = useState(false)
+  const [loading, setLoading] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -26,35 +38,83 @@ export default function Home() {
 
   const handleProve = async () => {
     setProofGenerated(false)
-    const witnessStart = performance.now()
-    addLog("[prove] Generating witness...", "text-gray-500")
-    await new Promise(res => setTimeout(res, 700))
-    const witnessEnd = performance.now()
-    addLog(
-      `[prove] Witness generated! (${(witnessEnd - witnessStart).toFixed(0)}ms)`,
-      "text-green-500"
-    )
+    setLoading(true)
+    try {
+      const noir = new Noir(circuit as any)
+      const honk = new UltraHonkBackend((circuit as any).bytecode, { threads: 4 })
 
-    const proofStart = performance.now()
-    addLog("[prove] Generating proof...", "text-gray-500")
-    await new Promise(res => setTimeout(res, 900))
-    const proofEnd = performance.now()
-    addLog(
-      `[prove] Proof generated! (${(proofEnd - proofStart).toFixed(0)}ms)`,
-      "text-green-500"
-    )
-    setProofGenerated(true)
+      // Load inputs from Prover.toml
+      const response = await fetch('/circuits/Prover.toml')
+      const inputs = await response.text()
+      const parsedInputs = Object.fromEntries(
+        inputs.split('\n')
+          .filter(line => line.trim())
+          .map(line => {
+            const [key, value] = line.split('=').map(s => s.trim())
+            return [key, value.replace(/"/g, '')]
+          })
+      )
+
+      addLog(`[prove] Generating witness with inputs: ${JSON.stringify(parsedInputs)}`, "text-gray-500")
+      const witnessStart = performance.now()
+      const { witness } = await noir.execute(parsedInputs)
+      const witnessEnd = performance.now()
+      addLog(
+        `[prove] Witness generated! (${(witnessEnd - witnessStart).toFixed(0)}ms)`,
+        "text-green-500"
+      )
+
+      addLog("[prove] Generating proof...", "text-gray-500")
+      const proofStart = performance.now()
+      const result = await honk.generateProof(witness, { keccak: true })
+      const proofEnd = performance.now()
+      addLog(
+        `[prove] Proof generated! (${(proofEnd - proofStart).toFixed(0)}ms)`,
+        "text-green-500"
+      )
+      currentProof = result.proof
+      currentPublicInputs = result.publicInputs
+      setProofGenerated(true)
+    } catch (error: any) {
+      addLog(`[error] ${error?.message || 'Unknown error'}`, "text-red-500")
+      setProofGenerated(false)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleVerify = async () => {
-    const verifyStart = performance.now()
-    addLog("[verify] Verifying proof...", "text-gray-500")
-    await new Promise(res => setTimeout(res, 800))
-    const verifyEnd = performance.now()
-    addLog(
-      `[verify] Proof verified! (${(verifyEnd - verifyStart).toFixed(0)}ms)`,
-      "text-green-500"
-    )
+    setLoading(true)
+    try {
+      if (!currentProof || !currentPublicInputs) {
+        addLog("[error] Please generate a proof first", "text-red-500")
+        return
+      }
+      const honk = new UltraHonkBackend((circuit as any).bytecode, { threads: 4 })
+      const proofData = {
+        proof: currentProof,
+        publicInputs: currentPublicInputs
+      }
+      addLog("[verify] Verifying proof...", "text-gray-500")
+      const verifyStart = performance.now()
+      const isValid = await honk.verifyProof(proofData, { keccak: true })
+      const verifyEnd = performance.now()
+      if (isValid) {
+        addLog(
+          `[verify] Proof verified! (${(verifyEnd - verifyStart).toFixed(0)}ms)`,
+          "text-green-500"
+        )
+      } else {
+        addLog(
+          `[verify] Proof verification failed! (${(verifyEnd - verifyStart).toFixed(0)}ms)`,
+          "text-red-500"
+        )
+      }
+    } catch (error: any) {
+      addLog(`[error] ${error?.message || 'Unknown error'}`, "text-red-500")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -69,6 +129,7 @@ export default function Home() {
             size="lg"
             className="w-full bg-white hover:bg-gray-100 border border-black text-black font-bold shadow-sm transition-all duration-150"
             onClick={handleProve}
+            disabled={loading}
           >
             Generate Proof
           </Button>
@@ -78,7 +139,7 @@ export default function Home() {
             className={`w-full border border-white font-bold shadow-sm transition-all duration-150 
               ${!proofGenerated ? 'bg-gray-300 text-black opacity-100 cursor-not-allowed' : 'bg-white text-black hover:bg-gray-100 hover:text-black'}`}
             onClick={handleVerify}
-            disabled={!proofGenerated}
+            disabled={!proofGenerated || loading}
           >
             Verify Proof
           </Button>

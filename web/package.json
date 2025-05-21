@@ -3,12 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "do": "pnpm run setup && pnpm run dev",
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "setup": "node ../scripts/setup.js"
   },
   "dependencies": {
+    "@aztec/bb.js": "^0.82.2",
+    "@iarna/toml": "^2.2.5",
+    "@noir-lang/noir_js": "1.0.0-beta.3",
     "@radix-ui/react-slot": "^1.2.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

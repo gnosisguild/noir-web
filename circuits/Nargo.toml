@@ -1,5 +1,5 @@
 [package]
-name = "noir-circuits"
+name = "noir_circuits"
 type = "bin"
 authors = [""]
 

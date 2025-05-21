@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# circuits
+public/circuits/target/
+public/circuits/noir_circuits.json
+public/circuits/Prover.toml
+public/circuits/circuit-types.ts
