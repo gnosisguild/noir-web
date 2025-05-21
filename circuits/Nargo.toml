@@ -1,0 +1,6 @@
+[package]
+name = "noir-circuits"
+type = "bin"
+authors = [""]
+
+[dependencies]
