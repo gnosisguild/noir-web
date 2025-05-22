@@ -16,7 +16,7 @@ const fakeLogs = [
   { text: "[warn] Privacy mode enabled", color: "text-gray-600" },
   { text: "[user] To use your own circuit:", color: "text-gray-700" },
   { text: "1. Edit circuits/src/main.nr", color: "text-gray-700" },
-  { text: "2. Run: cd web && pnpm compile-circuits", color: "text-gray-700" },
+  { text: "2. Run: pnpm run do", color: "text-gray-700" },
   { text: "3. Edit web/public/circuits/Prover.toml", color: "text-gray-700" },
   { text: "4. Click 'Generate Proof'", color: "text-gray-700" },
 ];
@@ -53,12 +53,34 @@ export default function Home() {
       function flattenInputs(parsedToml: any) {
         const result: any = {};
         for (const key in parsedToml) {
-          if (Array.isArray(parsedToml[key])) {
-            // Array of objects with .coefficients
-            result[key] = parsedToml[key].map((item: any) => ({ coefficients: item.coefficients.map(String) }));
-          } else if (parsedToml[key]?.coefficients) {
-            // Single object with .coefficients
-            result[key] = { coefficients: parsedToml[key].coefficients.map(String) };
+          const value = parsedToml[key];
+          if (Array.isArray(value)) {
+            if (
+              value.length > 0 &&
+              value[0] &&
+              typeof value[0] === "object" &&
+              Object.keys(value[0]).length === 1 &&
+              Array.isArray(Object.values(value[0])[0])
+            ) {
+              const propName = Object.keys(value[0])[0];
+              result[key] = value.map((item: any) => ({
+                [propName]: item[propName].map(String),
+              }));
+            } else {
+              result[key] = value.map(String);
+            }
+          } else if (
+            value &&
+            typeof value === "object" &&
+            Object.keys(value).length === 1 &&
+            Array.isArray(Object.values(value)[0])
+          ) {
+            const propName = Object.keys(value)[0];
+            result[key] = { [propName]: value[propName].map(String) };
+          } else if (typeof value === "string" || typeof value === "number") {
+            result[key] = String(value);
+          } else {
+            result[key] = value;
           }
         }
         return result;
