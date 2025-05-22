@@ -28,34 +28,84 @@ try {
     process.exit(1);
 }
 
-// Read and parse the circuit source to understand input structure
-const circuitSource = fs.readFileSync(
-    path.join(__dirname, '../circuits/src/main.nr'),
-    'utf8'
-);
+// Read and parse main.nr
+const mainNrPath = path.join(__dirname, '../circuits/src/main.nr');
+const mainNrContent = fs.readFileSync(mainNrPath, 'utf8');
 
-// Extract input parameters from the circuit
-const inputParams = [];
-const mainFnMatch = circuitSource.match(/fn main\((.*?)\)/);
-if (mainFnMatch) {
-    const params = mainFnMatch[1].split(',').map(p => p.trim());
-    params.forEach(param => {
-        const [name, type] = param.split(':').map(p => p.trim());
-        const isPublic = type.includes('pub');
-        inputParams.push({ name, isPublic });
-    });
+// Extract the main function signature
+const mainFunctionMatch = mainNrContent.match(/fn main\((.*?)\)/s);
+if (!mainFunctionMatch) {
+    throw new Error('Could not find main function in main.nr');
 }
 
-// Generate a template Prover.toml with all inputs
+// Parse the parameters
+const paramsString = mainFunctionMatch[1];
+const inputParams = paramsString.split(',')
+    .map(param => param.trim())
+    .map(param => {
+        // Match parameter name and type
+        const match = param.match(/(\w+):\s*(.*)/);
+        if (!match) return null;
+        
+        const [_, name, type] = match;
+        
+        // Check if it's an array type
+        const arrayMatch = type.match(/\[(.*?);\s*(\d+)\]/);
+        if (arrayMatch) {
+            return {
+                name,
+                isArray: true,
+                arraySize: parseInt(arrayMatch[2])
+            };
+        }
+        
+        return {
+            name,
+            isArray: false
+        };
+    })
+    .filter(Boolean);
+
+// Now inputParams will be dynamically generated from main.nr
+console.log('Parsed input parameters:', inputParams);
+
+// Generate Prover.toml
+console.log('Generating Prover.toml...');
 const proverTemplate = inputParams.reduce((acc, param) => {
-    acc += `${param.name} = "0"\n`;
+    if (param.isArray) {
+        // For arrays, generate multiple entries with empty coefficients
+        for (let i = 0; i < param.arraySize; i++) {
+            acc += `[[${param.name}]]\ncoefficients = [${Array(1024).fill('""').join(', ')}]\n\n`;
+        }
+    } else {
+        // For scalar values, generate a single entry with empty coefficients
+        acc += `[${param.name}]\ncoefficients = [${Array(1024).fill('""').join(', ')}]\n\n`;
+    }
     return acc;
 }, '');
 
 // Write the template Prover.toml
 const proverTemplatePath = path.join(outputDir, 'Prover.toml');
 fs.writeFileSync(proverTemplatePath, proverTemplate);
-console.log('Generated template Prover.toml');
+console.log('Generated Prover.toml');
+
+// Generate TypeScript interface
+console.log('Generating TypeScript interface...');
+const tsInterface = `export interface CircuitInputs {
+    [key: string]: string | string[];
+${inputParams.map(param => {
+    if (param.isArray) {
+        return `    ${param.name}: string[];`;
+    }
+    return `    ${param.name}: string;`;
+}).join('\n')}
+}`;
+
+fs.writeFileSync(
+    path.join(outputDir, 'circuit-types.ts'),
+    tsInterface
+);
+console.log('Generated circuit-types.ts');
 
 // Copy the compiled circuits to the web/public directory
 const circuitsDir = path.join(__dirname, '../circuits/target');
@@ -69,16 +119,5 @@ files.forEach(file => {
         console.log(`Copied ${file} to web/public/circuits/`);
     }
 });
-
-// Generate a TypeScript interface for the circuit inputs
-const tsInterface = `export interface CircuitInputs {
-    [key: string]: string;
-${inputParams.map(param => `    ${param.name}: string;`).join('\n')}
-}`;
-fs.writeFileSync(
-    path.join(outputDir, 'circuit-types.ts'),
-    tsInterface
-);
-console.log('Generated circuit-types.ts');
 
 console.log('Done! Circuits have been compiled and copied to web/public/circuits/');
