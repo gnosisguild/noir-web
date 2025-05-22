@@ -19,25 +19,32 @@ A web interface for compiling, proving, and verifying Noir circuits. This projec
 ## Installation
 
 1. Clone the repository:
-```bash
-git clone https://github.com/gnosisguild/noir-web.git
-cd noir-web
-```
+   ```bash
+   git clone https://github.com/gnosisguild/noir-web.git
+   cd noir-web
+   ```
 
 2. Install dependencies:
-```bash
-cd web && pnpm install
-```
+   ```bash
+   cd web && pnpm install
+   ```
 
 ## Usage
 
-1. Edit your circuit in `circuits/src/main.nr`
-2. Run the following command:
-```bash
-pnpm run do
-```
-3. Edit the inputs in `web/public/circuits/Prover.toml`
-4. Use the web interface running under `localhost:3000` to generate and verify proofs
+1. **Edit your circuit** in `circuits/src/main.nr` to change circuit inputs or logic.
+2. **Compile and update all necessary files** by running:
+   ```bash
+   pnpm run do
+   ```
+   This will:
+   - Compile your Noir circuit
+   - Automatically generate a new `Prover.toml` template and TypeScript types for the circuit inputs
+3. **Edit the generated `web/public/circuits/Prover.toml`** file to provide your input values.
+4. **Use the web interface** running at `localhost:3000` to generate and verify proofs.
+
+> **Note:**  
+> The web interface and setup scripts are now fully dynamic.  
+> You do **not** need to manually update any frontend or script code when you change your circuit’s input structure—just follow the steps above!
 
 ## Project Structure
 
