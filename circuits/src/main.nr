@@ -1,10 +1,11 @@
 pub mod polynomial;
 pub mod pk_encryption;
 pub mod pk_enc_constants_1024_2x52_2048;
+pub mod safe;
 
-use polynomial::Polynomial;
+use pk_enc_constants_1024_2x52_2048::{L, N, S};
 use pk_encryption::BfvPkEncryptionCircuit;
-use pk_enc_constants_1024_2x52_2048::{N, L};
+use polynomial::Polynomial;
 
 fn main(
     pk0is: [Polynomial<N>; L],
@@ -18,7 +19,7 @@ fn main(
     r1is: [Polynomial<(2 * N) - 1>; L],
     r2is: [Polynomial<N - 1>; L],
     p1is: [Polynomial<(2 * N) - 1>; L],
-    p2is: [Polynomial<N - 1>; L]
+    p2is: [Polynomial<N - 1>; L],
 ) {
     let circuit = BfvPkEncryptionCircuit::new(
         pk0is,
@@ -32,7 +33,7 @@ fn main(
         r1is,
         r2is,
         p1is,
-        p2is
+        p2is,
     );
     circuit.correct_encryption();
-} 
+}
