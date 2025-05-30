@@ -26,5 +26,3 @@ pub global QIS: [Field; 2] = [4503599625535489, 4503599626321921];
 pub global K0IS: [Field; 2] = [2199023254656, 2199023255040];
 /// Constant value for the SAFE sponge algorithm.
 pub global TAG: Field = 16232883306424839773379165536863;
-
-global S: u32 = 24568;

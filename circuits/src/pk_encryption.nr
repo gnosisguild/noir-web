@@ -1,9 +1,12 @@
 use super::pk_enc_constants_1024_2x52_2048::{
     E_BOUND, K0IS, K1_LOW_BOUND, K1_UP_BOUND, L, N, P1_BOUNDS, P2_BOUNDS, PK_BOUND, QIS,
-    R1_LOW_BOUNDS, R1_UP_BOUNDS, R2_BOUNDS, S, U_BOUND,
+    R1_LOW_BOUNDS, R1_UP_BOUNDS, R2_BOUNDS, U_BOUND,
 };
 use super::polynomial::Polynomial;
 use super::safe::SafeSponge;
+
+// Total size of the all polynomial's coefficients.
+global size: u32 = (10 * L + 4) * N - 8;
 
 /// BfvPkEncryption circuit structure
 pub struct BfvPkEncryptionCircuit {
@@ -41,21 +44,24 @@ impl BfvPkEncryptionCircuit {
     }
 
     /// Assigns all the witness polynomial coefficients to an array
-    fn payload(self) -> [Field; S] {
-        let mut inputs = flatten([0; S], self.pk0is, 0);
-        inputs = flatten(inputs.0, self.pk1is, inputs.1);
-        inputs = flatten(inputs.0, self.ct0is, inputs.1);
-        inputs = flatten(inputs.0, self.ct1is, inputs.1);
-        inputs = flatten(inputs.0, [self.e0], inputs.1);
-        inputs = flatten(inputs.0, [self.e1], inputs.1);
-        inputs = flatten(inputs.0, [self.u], inputs.1);
-        inputs = flatten(inputs.0, [self.k1], inputs.1);
-        inputs = flatten(inputs.0, self.r1is, inputs.1);
-        inputs = flatten(inputs.0, self.r2is, inputs.1);
-        inputs = flatten(inputs.0, self.p1is, inputs.1);
-        inputs = flatten(inputs.0, self.p2is, inputs.1);
+    fn payload(self) -> [Field; size] {
+        let mut inputs = [0; size];
+        let mut offset = 0;
 
-        inputs.0
+        let (inputs, offset) = flatten(inputs, self.pk0is, offset);
+        let (inputs, offset) = flatten(inputs, self.pk1is, offset);
+        let (inputs, offset) = flatten(inputs, self.ct0is, offset);
+        let (inputs, offset) = flatten(inputs, self.ct1is, offset);
+        let (inputs, offset) = flatten(inputs, [self.e0], offset);
+        let (inputs, offset) = flatten(inputs, [self.e1], offset);
+        let (inputs, offset) = flatten(inputs, [self.u], offset);
+        let (inputs, offset) = flatten(inputs, [self.k1], offset);
+        let (inputs, offset) = flatten(inputs, self.r1is, offset);
+        let (inputs, offset) = flatten(inputs, self.r2is, offset);
+        let (inputs, offset) = flatten(inputs, self.p1is, offset);
+        let (inputs, _offset) = flatten(inputs, self.p2is, offset);
+
+        inputs
     }
 
     pub fn correct_encryption(self) {
@@ -75,8 +81,9 @@ impl BfvPkEncryptionCircuit {
         }
 
         // We assign all the coefficients to an array to generate challenge values
-        let mut safe = SafeSponge::start([S, 2 * L]);
-        safe = safe.absorb(self.payload());
+        let inputs = self.payload();
+        let mut safe = SafeSponge::start([size, 2 * L]);
+        safe = safe.absorb(inputs);
         let gammas = safe.squeeze();
 
         // CORRECT ENCRYPTION CONSTRAINT
@@ -149,10 +156,10 @@ impl BfvPkEncryptionCircuit {
 /// let (flattened, new_offset) = flatten(inputs, polynomials, offset);
 /// ```
 fn flatten<let N: u32, let L: u32>(
-    mut inputs: [Field; S],
+    mut inputs: [Field; size],
     poly: [Polynomial<N>; L],
     mut offset: u32,
-) -> ([Field; S], u32) {
+) -> ([Field; size], u32) {
     for j in 0..L {
         for i in 0..N {
             inputs[i + offset] = poly[j].coefficients[i];
