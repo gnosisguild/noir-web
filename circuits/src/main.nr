@@ -1,11 +1,6 @@
-pub mod polynomial;
-pub mod pk_encryption;
-pub mod pk_enc_constants_1024_2x52_2048;
-pub mod safe;
-
-use pk_enc_constants_1024_2x52_2048::{L, N};
-use pk_encryption::BfvPkEncryptionCircuit;
-use polynomial::Polynomial;
+use greco::constants::{L, N};
+use greco::crypto::pk_encryption::BfvPkEncryptionCircuit;
+use greco::math::polynomial::Polynomial;
 
 fn main(
     pk0is: [Polynomial<N>; L],

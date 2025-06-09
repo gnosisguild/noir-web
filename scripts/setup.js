@@ -2,6 +2,18 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
+// Clean up previous build artifacts
+const targetDir = path.join(__dirname, '../circuits/target');
+const outputDir = path.join(__dirname, '../web/public/circuits');
+
+console.log('Cleaning up previous build artifacts...');
+[targetDir, outputDir].forEach(dir => {
+  if (fs.existsSync(dir)) {
+    fs.rmSync(dir, { recursive: true, force: true });
+    console.log(`Deleted ${dir}`);
+  }
+});
+
 // Path to main.nr and Noir source directory
 const mainNrPath = path.join(__dirname, '../circuits/src/main.nr');
 const noirSrcDir = path.join(__dirname, '../circuits/src');
@@ -118,7 +130,6 @@ params.forEach(({ name, type }) => {
 tsInterface += `}\n`;
 
 // Write Prover.toml
-const outputDir = path.join(__dirname, '../web/public/circuits');
 if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 fs.writeFileSync(path.join(outputDir, 'Prover.toml'), proverToml);
 console.log('Generated Prover.toml');
@@ -138,7 +149,6 @@ try {
 }
 
 // Copy compiled circuit files to public/circuits
-const targetDir = path.join(__dirname, '../circuits/target');
 const files = fs.readdirSync(targetDir);
 files.forEach(file => {
   if (file.endsWith('.json')) {
